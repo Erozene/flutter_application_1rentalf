@@ -1,50 +1,48 @@
 import express from "express";
 import cors from "cors";
-import dotenv from "dotenv";
 import Stripe from "stripe";
+import dotenv from "dotenv";
 
-// Load environment variables from .env
 dotenv.config();
 
 const app = express();
-const port = process.env.PORT || 10000;
-
-// Initialize Stripe with secret key from environment variable
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2022-11-15",
-});
-
-// Middleware
 app.use(cors());
 app.use(express.json());
 
-// Routes
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
 app.get("/", (req, res) => {
-  res.send("Baserent backend is running!");
+  res.send("BaseRent backend running");
 });
 
-// Create PaymentIntent
 app.post("/create-payment-intent", async (req, res) => {
   try {
-    const { amount, currency } = req.body;
 
-    if (!amount || !currency) {
-      return res.status(400).json({ error: "Missing amount or currency" });
-    }
+    const { amount } = req.body;
 
     const paymentIntent = await stripe.paymentIntents.create({
-      amount,
-      currency,
+      amount: amount,
+      currency: "usd",
+      automatic_payment_methods: { enabled: true }
     });
 
-    res.json({ clientSecret: paymentIntent.client_secret });
+    res.json({
+      clientSecret: paymentIntent.client_secret
+    });
+
   } catch (error) {
-    console.error("Error creating PaymentIntent:", error);
-    res.status(500).json({ error: error.message });
+
+    console.error(error);
+
+    res.status(500).json({
+      error: "Payment intent failed"
+    });
+
   }
 });
 
-// Start server
-app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
