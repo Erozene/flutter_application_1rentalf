@@ -1,0 +1,48 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Users ──────────────────────────────────────────────────────────────
+    match /users/{userId} {
+      // Anyone can read public profiles
+      allow read: if true;
+      // Only the user themselves can write their own profile
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // ── Equipment ──────────────────────────────────────────────────────────
+    match /equipment/{itemId} {
+      // Anyone can browse listings
+      allow read: if true;
+      // Only authenticated users can create listings
+      allow create: if request.auth != null
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.price is number
+        && request.resource.data.price > 0
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0;
+      // Only the owner can update/delete their listing
+      allow update, delete: if request.auth != null
+        && resource.data.ownerId == request.auth.uid;
+    }
+
+    // ── Bookings ───────────────────────────────────────────────────────────
+    match /bookings/{bookingId} {
+      // Users can only read their own bookings
+      allow read: if request.auth != null
+        && (resource.data.userId == request.auth.uid
+            || resource.data.ownerId == request.auth.uid);
+      // Authenticated users can create bookings for themselves
+      allow create: if request.auth != null
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.total is number
+        && request.resource.data.total > 0;
+      // Only the renter can cancel (update status to cancelled)
+      allow update: if request.auth != null
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.status == 'cancelled';
+      // No deletes on bookings
+      allow delete: if false;
+    }
+  }
+}
