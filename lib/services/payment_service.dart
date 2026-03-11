@@ -223,7 +223,7 @@ class PaymentService {
         .map((snap) => snap.docs.map(Booking.fromFirestore).toList());
   }
 
-  Future<void> cancelBooking(String bookingId, {String? userEmail, String? equipmentTitle, String? userId}) async {
+  Future<void> cancelBooking(String bookingId, {String? userEmail, String? equipmentTitle, String? userId, String? paymentIntentId, String? depositIntentId, required bool partialRefund}) async {
     await _firestore
         .collection('bookings')
         .doc(bookingId)
@@ -245,4 +245,6 @@ class PaymentService {
       );
     }
   }
+
+  getOwnerBookings(String ownerId) {}
 }

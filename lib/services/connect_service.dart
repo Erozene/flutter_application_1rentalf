@@ -18,7 +18,7 @@ class ConnectService {
     try {
       final doc = await _db.collection('users').doc(userId).get();
       if (!doc.exists) return null;
-      return (doc.data() as Map<String, dynamic>?)?['stripeAccountId'] as String?;
+      return (doc.data())?['stripeAccountId'] as String?;
     } catch (_) {
       return null;
     }

@@ -14,6 +14,7 @@ class AppColors {
   static const success = Color(0xFF4ADE80);
   static const successBg = Color(0xFF0B2211);
   static const error = Color(0xFFFF4444);
+  static const errorBg = Color(0xFF2A1515);
 }
 
 class AppFonts {

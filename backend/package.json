@@ -1,7 +1,7 @@
 {
   "name": "baserent-backend",
   "version": "1.0.0",
-  "description": "BASERENT Express backend — Stripe payment intents",
+  "description": "BASERENT Express backend \u2014 Stripe payment intents",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
@@ -13,7 +13,9 @@
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.18.2",
-    "stripe": "^14.25.0"
+    "stripe": "^14.25.0",
+    "resend": "^3.2.0",
+    "firebase-admin": "^12.0.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.0"

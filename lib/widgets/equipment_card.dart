@@ -45,8 +45,7 @@ class _EquipmentCardState extends State<EquipmentCard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(
-                height: 160,
+              Expanded(
                 child: Stack(
                   fit: StackFit.expand,
                   children: [

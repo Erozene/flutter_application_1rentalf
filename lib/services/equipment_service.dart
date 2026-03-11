@@ -8,7 +8,6 @@ class EquipmentService {
   final _storage = FirebaseStorage.instance;
 
   Stream<List<Equipment>> getEquipment({String? category}) {
-    // Simple query - no orderBy to avoid needing composite indexes
     Query query = _firestore
         .collection('equipment')
         .where('available', isEqualTo: true);

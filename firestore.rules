@@ -22,13 +22,21 @@ service cloud.firestore {
         && request.resource.data.title is string
         && request.resource.data.title.size() > 0;
       // Only the owner can update/delete their listing
-      allow update, delete: if request.auth != null
+      // Exception: bookedDates can be updated by any authenticated user (for bookings)
+      allow update: if request.auth != null && (
+        resource.data.ownerId == request.auth.uid
+        || (
+          request.auth != null
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['bookedDates'])
+        )
+      );
+      allow delete: if request.auth != null
         && resource.data.ownerId == request.auth.uid;
     }
 
     // ── Bookings ───────────────────────────────────────────────────────────
     match /bookings/{bookingId} {
-      // Users can only read their own bookings
+      // Renter and owner can read their own bookings
       allow read: if request.auth != null
         && (resource.data.userId == request.auth.uid
             || resource.data.ownerId == request.auth.uid);
@@ -37,12 +45,56 @@ service cloud.firestore {
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.total is number
         && request.resource.data.total > 0;
-      // Only the renter can cancel (update status to cancelled)
+      // Renter can cancel or confirm return (update status/depositStatus)
       allow update: if request.auth != null
         && resource.data.userId == request.auth.uid
-        && request.resource.data.status == 'cancelled';
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'depositStatus']);
       // No deletes on bookings
       allow delete: if false;
     }
+
+    // ── Reviews ────────────────────────────────────────────────────────────
+    match /reviews/{reviewId} {
+      // Anyone can read reviews
+      allow read: if true;
+      // Only authenticated users can create reviews for themselves
+      allow create: if request.auth != null
+        && request.resource.data.userId == request.auth.uid;
+      // No updates or deletes
+      allow update, delete: if false;
+    }
+
+    // ── Conversations ──────────────────────────────────────────────────────
+    match /conversations/{convId} {
+      // Only participants can read
+      allow read: if request.auth != null
+        && (resource.data.renterId == request.auth.uid
+            || resource.data.ownerId == request.auth.uid);
+      // Authenticated users can create conversations they participate in
+      allow create: if request.auth != null
+        && (request.resource.data.renterId == request.auth.uid
+            || request.resource.data.ownerId == request.auth.uid);
+      // Participants can update (last message preview)
+      allow update: if request.auth != null
+        && (resource.data.renterId == request.auth.uid
+            || resource.data.ownerId == request.auth.uid);
+      allow delete: if false;
+
+      // ── Messages ──────────────────────────────────────────────────────
+      match /messages/{messageId} {
+        // Only conversation participants can read messages
+        allow read: if request.auth != null
+          && (get(/databases/$(database)/documents/conversations/$(convId)).data.renterId == request.auth.uid
+              || get(/databases/$(database)/documents/conversations/$(convId)).data.ownerId == request.auth.uid);
+        // Only participants can send messages
+        allow create: if request.auth != null
+          && request.resource.data.senderId == request.auth.uid
+          && (get(/databases/$(database)/documents/conversations/$(convId)).data.renterId == request.auth.uid
+              || get(/databases/$(database)/documents/conversations/$(convId)).data.ownerId == request.auth.uid);
+        allow update, delete: if false;
+      }
+    }
+
   }
 }

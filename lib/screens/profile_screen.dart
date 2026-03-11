@@ -9,6 +9,7 @@ import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/equipment_card.dart';
 import 'legal_screen.dart';
+import 'owner_bookings_screen.dart';
 import 'payouts_screen.dart';
 
 class ProfileScreen extends StatefulWidget {

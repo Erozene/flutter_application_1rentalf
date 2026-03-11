@@ -475,9 +475,95 @@ class _BookingTile extends StatefulWidget {
 
 class _BookingTileState extends State<_BookingTile> {
   bool _releasing = false;
+  bool _cancelling = false;
 
   Future<String?> _getUser() async {
     return FirebaseAuth.instance.currentUser?.email;
+  }
+
+  Future<void> _cancelBooking() async {
+    // Check 24hr policy
+    final bool isWithin24hrs = widget.booking.dates.isNotEmpty &&
+        widget.booking.dates.first.difference(DateTime.now()).inHours < 24;
+
+    final String policyMessage = isWithin24hrs
+        ? 'Your rental starts in less than 24 hours. A 50% cancellation fee applies — you will receive a 50% refund.'
+        : 'Free cancellation. You will receive a full refund to your original payment method.';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+        title: const AppHeading('Cancel Booking', size: 20),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (isWithin24hrs)
+              Container(
+                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: AppColors.errorBg,
+                  border: Border.all(color: AppColors.error.withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.warning_outlined, size: 14, color: AppColors.error),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text('50% cancellation fee applies',
+                          style: AppFonts.dmMono(fontSize: 11, color: AppColors.error)),
+                    ),
+                  ],
+                ),
+              ),
+            Text(policyMessage,
+                style: AppFonts.dmMono(fontSize: 12, color: AppColors.textMuted, height: 1.5)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Keep Booking',
+                style: AppFonts.dmMono(fontSize: 12, color: AppColors.textMuted)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text('Cancel Booking',
+                style: AppFonts.dmMono(fontSize: 12, color: AppColors.error)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() => _cancelling = true);
+    try {
+      final currentUser = FirebaseAuth.instance.currentUser;
+      final isWithin24hrs = widget.booking.dates.isNotEmpty &&
+          widget.booking.dates.first.difference(DateTime.now()).inHours < 24;
+
+      await PaymentService().cancelBooking(
+        widget.booking.id,
+        userEmail: currentUser?.email,
+        equipmentTitle: widget.booking.equipmentTitle,
+        userId: currentUser?.uid,
+        paymentIntentId: widget.booking.paymentIntentId,
+        depositIntentId: widget.booking.depositIntentId,
+        partialRefund: isWithin24hrs,
+      );
+      if (mounted) {
+        showAppSnackBar(context, 'Booking cancelled. Refund is on its way.');
+      }
+    } catch (e) {
+      if (mounted) {
+        showAppSnackBar(context, 'Failed to cancel: \$e', isError: true);
+      }
+    }
+    if (mounted) setState(() => _cancelling = false);
   }
 
   Future<void> _confirmReturn() async {
@@ -602,6 +688,15 @@ class _BookingTileState extends State<_BookingTile> {
               child: AppButton(
                 label: _releasing ? 'RELEASING...' : 'CONFIRM RETURN & RELEASE DEPOSIT →',
                 onPressed: _releasing ? null : _confirmReturn,
+              ),
+            ),
+          if (b.status == BookingStatus.confirmed)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+              child: AppButton(
+                label: _cancelling ? 'CANCELLING...' : 'CANCEL BOOKING',
+                onPressed: _cancelling ? null : _cancelBooking,
+                outline: true,
               ),
             ),
         ],
