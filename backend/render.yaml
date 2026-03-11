@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: baserent-backend
+    runtime: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: STRIPE_SECRET_KEY
+        sync: false          # set manually in Render dashboard
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false          # optional, set if you enable webhooks
