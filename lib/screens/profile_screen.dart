@@ -10,6 +10,7 @@ import '../widgets/common_widgets.dart';
 import '../widgets/equipment_card.dart';
 import 'legal_screen.dart';
 import 'owner_bookings_screen.dart';
+import 'referral_screen.dart';
 import 'payouts_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -169,6 +170,73 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ]),
             ),
           ),
+          const SizedBox(height: 12),
+
+          // Incoming bookings
+          AppBox(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: InkWell(
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => OwnerBookingsScreen(ownerId: widget.user.uid),
+                ),
+              ),
+              child: Row(children: [
+                const Icon(Icons.calendar_month_outlined,
+                    size: 18, color: AppColors.orange),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Incoming Bookings',
+                          style: AppFonts.dmMono(
+                              fontSize: 13, weight: FontWeight.w500)),
+                      Text('See who booked your gear',
+                          style: AppFonts.dmMono(
+                              fontSize: 11, color: AppColors.textMuted)),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right,
+                    size: 18, color: AppColors.textMuted),
+              ]),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Referral
+          AppBox(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: InkWell(
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ReferralScreen()),
+              ),
+              child: Row(children: [
+                const Icon(Icons.card_giftcard_outlined,
+                    size: 18, color: AppColors.orange),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Refer a Friend',
+                          style: AppFonts.dmMono(
+                              fontSize: 13, weight: FontWeight.w500)),
+                      Text('Give 10% off, get 10% off',
+                          style: AppFonts.dmMono(
+                              fontSize: 11, color: AppColors.textMuted)),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right,
+                    size: 18, color: AppColors.textMuted),
+              ]),
+            ),
+          ),
+
           const SizedBox(height: 16),
           Row(children: [
             TextButton(
@@ -265,6 +333,7 @@ class _AddEquipmentSheetState extends State<_AddEquipmentSheet> {
   final _descCtrl = TextEditingController();
   final _priceCtrl = TextEditingController();
   final _depositCtrl = TextEditingController();
+  final _cityCtrl = TextEditingController();
   String _category = 'Camera';
   String? _imageUrl;
   bool _available = true;
@@ -286,6 +355,7 @@ class _AddEquipmentSheetState extends State<_AddEquipmentSheet> {
       _imageUrl = e.imageUrl;
       _available = e.available;
       if (e.depositAmount > 0) _depositCtrl.text = e.depositAmount.toStringAsFixed(0);
+      if (e.city.isNotEmpty) _cityCtrl.text = e.city;
     }
   }
 
@@ -294,6 +364,8 @@ class _AddEquipmentSheetState extends State<_AddEquipmentSheet> {
     _titleCtrl.dispose();
     _descCtrl.dispose();
     _priceCtrl.dispose();
+    _depositCtrl.dispose();
+    _cityCtrl.dispose();
     super.dispose();
   }
 
@@ -328,6 +400,7 @@ class _AddEquipmentSheetState extends State<_AddEquipmentSheet> {
         imageUrl: _imageUrl ?? '',
         category: _category,
         depositAmount: double.tryParse(_depositCtrl.text.trim()) ?? 0,
+        city: _cityCtrl.text.trim(),
         ownerId: widget.ownerId,
         available: _available,
         rating: widget.existing?.rating ?? 0,
@@ -395,7 +468,9 @@ class _AddEquipmentSheetState extends State<_AddEquipmentSheet> {
             _field('Daily Price (\$)', _priceCtrl, '0',
                 keyboardType: TextInputType.number),
             const SizedBox(height: 12),
-            _field('Security Deposit (\$)', _depositCtrl, '0 = no deposit',
+            _field('City / Location', _cityCtrl, 'e.g. New York, London'),
+              const SizedBox(height: 12),
+              _field('Security Deposit (\$)', _depositCtrl, '0 = no deposit',
                 keyboardType: TextInputType.number),
             const SizedBox(height: 12),
             AppLabel('Category'),

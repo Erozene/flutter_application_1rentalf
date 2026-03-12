@@ -4,6 +4,11 @@ import '../models/booking.dart';
 import '../services/payment_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
+import 'dispute_screen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/messaging_service.dart';
+import 'chat_screen.dart';
+import 'rate_renter_screen.dart';
 
 class OwnerBookingsScreen extends StatelessWidget {
   final String ownerId;
@@ -101,9 +106,16 @@ class _BookingList extends StatelessWidget {
   }
 }
 
-class _OwnerBookingTile extends StatelessWidget {
+class _OwnerBookingTile extends StatefulWidget {
   final Booking booking;
   const _OwnerBookingTile({required this.booking});
+
+  @override
+  State<_OwnerBookingTile> createState() => _OwnerBookingTileState();
+}
+
+class _OwnerBookingTileState extends State<_OwnerBookingTile> {
+  Booking get booking => widget.booking;
 
   Color _statusColor() {
     switch (booking.status) {
@@ -112,6 +124,39 @@ class _OwnerBookingTile extends StatelessWidget {
       case BookingStatus.cancelled: return AppColors.error;
       case BookingStatus.completed: return AppColors.textMuted;
     }
+  }
+
+  Future<void> _openChat() async {
+    final db = FirebaseFirestore.instance;
+    // Fetch renter email
+    final renterDoc = await db.collection('users').doc(booking.userId).get();
+    final ownerDoc = await db.collection('users').doc(booking.ownerId).get();
+    final renterEmail = (renterDoc.data()?['email'] as String?) ?? '';
+    final ownerEmail = (ownerDoc.data()?['email'] as String?) ?? '';
+
+    final svc = MessagingService();
+    final convoId = await svc.getOrCreateConversation(
+      renterId: booking.userId,
+      renterEmail: renterEmail,
+      ownerId: booking.ownerId,
+      ownerEmail: ownerEmail,
+      equipmentId: booking.equipmentId,
+      equipmentTitle: booking.equipmentTitle,
+    );
+    if (!mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ChatScreen(
+          conversationId: convoId,
+          otherPersonId: booking.userId,
+          currentUserId: booking.ownerId,
+          currentUserEmail: ownerEmail,
+          otherPersonEmail: renterEmail,
+          equipmentTitle: booking.equipmentTitle,
+        ),
+      ),
+    );
   }
 
   @override
@@ -184,6 +229,70 @@ class _OwnerBookingTile extends StatelessWidget {
                 ],
               ),
             ),
+          // Action buttons
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _openChat,
+                    icon: const Icon(Icons.chat_bubble_outline, size: 14),
+                    label: Text('Message Renter',
+                        style: AppFonts.dmMono(fontSize: 11)),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.text,
+                      side: const BorderSide(color: AppColors.border),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                    ),
+                  ),
+                ),
+                if (booking.canDispute) ...[
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => DisputeScreen(booking: booking),
+                        ),
+                      ),
+                      icon: const Icon(Icons.warning_outlined, size: 14),
+                      label: Text('File Dispute',
+                          style: AppFonts.dmMono(fontSize: 11)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.error,
+                        side: BorderSide(color: AppColors.error.withOpacity(0.5)),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                      ),
+                    ),
+                  ),
+                ],
+                if (booking.status == BookingStatus.completed &&
+                    booking.renterRating == null) ...[
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => RateRenterScreen(booking: booking),
+                        ),
+                      ),
+                      icon: const Icon(Icons.star_outline, size: 14),
+                      label: Text('Rate Renter',
+                          style: AppFonts.dmMono(fontSize: 11)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.orange,
+                        side: BorderSide(color: AppColors.orange.withOpacity(0.5)),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
         ],
       ),
     );

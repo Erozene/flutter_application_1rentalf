@@ -13,6 +13,7 @@ class Equipment {
   final int reviewCount;
   final bool available;
   final List<String> bookedDates;
+  final String city;
 
   Equipment({
     required this.id,
@@ -27,6 +28,7 @@ class Equipment {
     this.reviewCount = 0,
     this.available = true,
     this.bookedDates = const [],
+    this.city = '',
   });
 
   factory Equipment.fromFirestore(DocumentSnapshot doc) {
@@ -44,6 +46,7 @@ class Equipment {
       reviewCount: data['reviewCount'] ?? 0,
       available: data['available'] ?? true,
       bookedDates: List<String>.from(data['bookedDates'] ?? []),
+      city: data['city'] ?? '',
     );
   }
 
@@ -59,6 +62,7 @@ class Equipment {
         'reviewCount': reviewCount,
         'available': available,
         'bookedDates': bookedDates,
+        'city': city,
         'createdAt': FieldValue.serverTimestamp(),
       };
 }

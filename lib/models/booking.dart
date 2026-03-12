@@ -1,7 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 enum BookingStatus { pending, confirmed, completed, cancelled }
-enum DepositStatus { held, released, claimed }
+enum DepositStatus { held, released, claimed, disputed }
+enum DisputeStatus { none, open, resolvedRenter, resolvedOwner }
 
 class Booking {
   final String id;
@@ -18,6 +19,9 @@ class Booking {
   final String? paymentIntentId;
   final String? depositIntentId;
   final DateTime? createdAt;
+  final DisputeStatus disputeStatus;
+  final String? disputeReason;
+  final double? renterRating;
 
   Booking({
     required this.id,
@@ -34,6 +38,9 @@ class Booking {
     this.paymentIntentId,
     this.depositIntentId,
     this.createdAt,
+    this.disputeStatus = DisputeStatus.none,
+    this.disputeReason,
+    this.renterRating,
   });
 
   factory Booking.fromFirestore(DocumentSnapshot doc) {
@@ -61,6 +68,12 @@ class Booking {
       paymentIntentId: data['paymentIntentId'],
       depositIntentId: data['depositIntentId'],
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
+      disputeStatus: DisputeStatus.values.firstWhere(
+        (s) => s.name == (data['disputeStatus'] ?? 'none'),
+        orElse: () => DisputeStatus.none,
+      ),
+      disputeReason: data['disputeReason'],
+      renterRating: (data['renterRating'] as num?)?.toDouble(),
     );
   }
 
@@ -82,6 +95,11 @@ class Booking {
   }
 
   bool get hasDeposit => depositAmount > 0;
+  bool get hasDispute => disputeStatus == DisputeStatus.open;
+  bool get canDispute =>
+      status == BookingStatus.confirmed &&
+      hasDeposit &&
+      depositStatus == DepositStatus.held;
   bool get canConfirmReturn =>
       status == BookingStatus.confirmed &&
       hasDeposit &&

@@ -184,7 +184,6 @@ class PaymentService {
       paymentIntentId: paymentIntentId,
     );
 
-    // Send confirmation email + push (non-fatal)
     if (userEmail != null) {
       EmailService().bookingConfirmed(
         userEmail: userEmail,
@@ -197,14 +196,12 @@ class PaymentService {
         bookingId: ref.id,
       );
     }
-    // Push to renter
     PushService.sendToUser(
       userId: userId,
       title: 'Booking Confirmed',
       body: "$equipmentTitle is reserved. You're all set!",
       data: {'type': 'booking_confirmed', 'bookingId': ref.id},
     );
-    // Push to owner
     PushService.sendToUser(
       userId: ownerId,
       title: 'New Booking',
@@ -223,28 +220,55 @@ class PaymentService {
         .map((snap) => snap.docs.map(Booking.fromFirestore).toList());
   }
 
-  Future<void> cancelBooking(String bookingId, {String? userEmail, String? equipmentTitle, String? userId, String? paymentIntentId, String? depositIntentId, required bool partialRefund}) async {
+  Stream<List<Booking>> getOwnerBookings(String ownerId) {
+    return _firestore
+        .collection('bookings')
+        .where('ownerId', isEqualTo: ownerId)
+        .snapshots()
+        .map((snap) => snap.docs.map(Booking.fromFirestore).toList());
+  }
+
+  Future<void> cancelBooking(
+    String bookingId, {
+    String? userEmail,
+    String? equipmentTitle,
+    String? userId,
+    String? paymentIntentId,
+    String? depositIntentId,
+    bool partialRefund = false,
+  }) async {
+    // Call backend to refund Stripe payments
+    try {
+      await http.post(
+        Uri.parse('$_backendUrl/cancel-booking'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'booking_id': bookingId,
+          'partial_refund': partialRefund,
+          if (paymentIntentId != null) 'payment_intent_id': paymentIntentId,
+          if (depositIntentId != null) 'deposit_intent_id': depositIntentId,
+          if (userEmail != null) 'user_email': userEmail,
+          if (equipmentTitle != null) 'equipment_title': equipmentTitle,
+        }),
+      );
+    } catch (e) {
+      print('Refund error (non-fatal): $e');
+    }
+
+    // Update Firestore status
     await _firestore
         .collection('bookings')
         .doc(bookingId)
         .update({'status': 'cancelled'});
 
-    if (userEmail != null && equipmentTitle != null) {
-      EmailService().bookingCancelled(
-        userEmail: userEmail,
-        equipmentTitle: equipmentTitle,
-        bookingId: bookingId,
-      );
-    }
+    // Push notification
     if (userId != null) {
       PushService.sendToUser(
         userId: userId,
         title: 'Booking Cancelled',
-        body: '${equipmentTitle ?? "Your booking"} has been cancelled.',
+        body: '\${equipmentTitle ?? "Your booking"} has been cancelled. Refund is on its way.',
         data: {'type': 'booking_cancelled', 'bookingId': bookingId},
       );
     }
   }
-
-  getOwnerBookings(String ownerId) {}
 }

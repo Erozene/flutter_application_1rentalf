@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../models/booking.dart';
+import '../services/promo_service.dart';
 import '../models/equipment.dart';
 import '../services/payment_service.dart';
 import '../theme/app_theme.dart';
@@ -32,11 +33,34 @@ class _BookingScreenState extends State<BookingScreen> {
   List<DateTime> _selectedDates = [];
   bool _loading = false;
   String _loadingMsg = '';
+  final _promoCtrl = TextEditingController();
+  PromoResult? _promoResult;
+  bool _checkingPromo = false;
 
   double get _total => _selectedDates.length * widget.equipment.price;
   double get _deposit => widget.equipment.depositAmount;
-  double get _chargeNow => _total + _deposit;
+  double get _discount => _promoResult?.discountAmount ?? 0;
+  double get _chargeNow => (_total - _discount).clamp(0, double.infinity) + _deposit;
   int get _days => _selectedDates.length;
+
+  Future<void> _applyPromo() async {
+    final code = _promoCtrl.text.trim();
+    if (code.isEmpty) return;
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    setState(() => _checkingPromo = true);
+    final result = await PromoService().validatePromo(code, user.uid, _total);
+    if (mounted) {
+      setState(() { _promoResult = result; _checkingPromo = false; });
+      showAppSnackBar(
+        context,
+        result.valid
+            ? 'Code applied! \$${result.discountAmount.toStringAsFixed(0)} off'
+            : result.error ?? 'Invalid code',
+        isError: !result.valid,
+      );
+    }
+  }
 
   List<DateTime> _expandRange(DateTimeRange range) {
     final dates = <DateTime>[];
@@ -125,6 +149,14 @@ class _BookingScreenState extends State<BookingScreen> {
 
       setState(() => _loadingMsg = 'Confirming booking...');
 
+      // Redeem promo if valid
+      if (_promoResult != null && _promoResult!.valid && _promoResult!.promoId != null) {
+        final user = FirebaseAuth.instance.currentUser;
+        if (user != null) {
+          await PromoService().redeemPromo(_promoResult!.promoId!, user.uid);
+        }
+      }
+
       final booking = await _paymentService.createBooking(
         equipmentId: widget.equipment.id,
         equipmentTitle: widget.equipment.title,
@@ -132,7 +164,7 @@ class _BookingScreenState extends State<BookingScreen> {
         userId: widget.userId,
         ownerId: widget.equipment.ownerId,
         dates: _selectedDates,
-        total: _total,
+        total: (_total - _discount).clamp(0, double.infinity),
         paymentIntentId: paymentIntentId,
         depositAmount: _deposit,
         depositIntentId: depositIntentId,
@@ -274,9 +306,14 @@ class _BookingScreenState extends State<BookingScreen> {
                       _summaryRow('Duration', '$_days day${_days != 1 ? "s" : ""}'),
                       const SizedBox(height: 8),
                       _summaryRow('Rental total', '\$${_total.toStringAsFixed(0)}'),
+                      if (_promoResult != null && _promoResult!.valid) ...[
+                        const SizedBox(height: 8),
+                        _summaryRow('Promo discount', '-\${_promoResult!.discountAmount.toStringAsFixed(0)}',
+                            highlight: true),
+                      ],
                       if (_deposit > 0) ...[
                         const SizedBox(height: 8),
-                        _summaryRow('Security deposit', '\$${_deposit.toStringAsFixed(0)}',
+                        _summaryRow('Security deposit', '\${_deposit.toStringAsFixed(0)}',
                             highlight: true),
                       ],
                       const SizedBox(height: 12),
@@ -336,6 +373,33 @@ class _BookingScreenState extends State<BookingScreen> {
                     ],
                   ),
                 ),
+                const SizedBox(height: 16),
+                // Promo code
+                Row(children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _promoCtrl,
+                      style: AppFonts.dmMono(fontSize: 12, color: AppColors.text),
+                      textCapitalization: TextCapitalization.characters,
+                      decoration: const InputDecoration(
+                        hintText: 'Promo code',
+                        prefixIcon: Icon(Icons.local_offer_outlined,
+                            size: 16, color: AppColors.textMuted),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  OutlinedButton(
+                    onPressed: _checkingPromo ? null : _applyPromo,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.orange,
+                      side: const BorderSide(color: AppColors.orange),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    ),
+                    child: Text(_checkingPromo ? '...' : 'APPLY',
+                        style: AppFonts.dmMono(fontSize: 11)),
+                  ),
+                ]),
                 const SizedBox(height: 100),
               ],
             ),

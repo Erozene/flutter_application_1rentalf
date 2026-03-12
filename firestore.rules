@@ -96,5 +96,38 @@ service cloud.firestore {
       }
     }
 
+
+    // ── Disputes ───────────────────────────────────────────────────────────────
+    match /disputes/{disputeId} {
+      allow read: if request.auth != null
+        && (resource.data.renterId == request.auth.uid
+            || resource.data.ownerId == request.auth.uid);
+      allow create: if request.auth != null
+        && request.resource.data.ownerId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // ── Renter Reviews ─────────────────────────────────────────────────────────
+    match /renterReviews/{reviewId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.ownerId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // ── Promo Codes ────────────────────────────────────────────────────────────
+    match /promoCodes/{promoId} {
+      allow read: if request.auth != null;
+      // Users can create their own referral codes
+      allow create: if request.auth != null
+        && request.resource.data.type == 'referral'
+        && request.resource.data.referrerId == request.auth.uid;
+      // Only backend updates usage counts
+      allow update: if request.auth != null
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['uses', 'usedBy']);
+      allow delete: if false;
+    }
+
   }
 }

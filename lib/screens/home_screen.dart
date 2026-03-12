@@ -27,12 +27,15 @@ class _HomeScreenState extends State<HomeScreen> {
   final _equipmentService = EquipmentService();
   String _activeCategory = 'All';
   String _searchQuery = '';
+  String _cityQuery = '';
   final _searchCtrl = TextEditingController();
+  final _cityCtrl = TextEditingController();
   int _navIndex = 0;
 
   @override
   void dispose() {
     _searchCtrl.dispose();
+    _cityCtrl.dispose();
     super.dispose();
   }
 
@@ -123,6 +126,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         SliverToBoxAdapter(child: _searchBar()),
+        SliverToBoxAdapter(child: _citySearchBar()),
         SliverToBoxAdapter(child: _categoryBar()),
       ],
       body: _equipmentGrid(),
@@ -155,6 +159,32 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _citySearchBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: TextField(
+        controller: _cityCtrl,
+        style: AppFonts.dmMono(fontSize: 13, color: AppColors.text),
+        onChanged: (v) => setState(() => _cityQuery = v),
+        decoration: InputDecoration(
+          hintText: 'Filter by city...',
+          prefixIcon: const Icon(Icons.location_on_outlined,
+              color: AppColors.textMuted, size: 18),
+          suffixIcon: _cityQuery.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.close,
+                      color: AppColors.textMuted, size: 16),
+                  onPressed: () {
+                    _cityCtrl.clear();
+                    setState(() => _cityQuery = '');
+                  },
+                )
+              : null,
+        ),
+      ),
+    );
+  }
+
   Widget _categoryBar() {
     return SizedBox(
       height: 50,
@@ -178,7 +208,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _equipmentGrid() {
     return StreamBuilder<List<Equipment>>(
       stream: _equipmentService.getEquipment(
-          category: _activeCategory == 'All' ? null : _activeCategory),
+          category: _activeCategory == 'All' ? null : _activeCategory,
+          city: _cityQuery.trim().isEmpty ? null : _cityQuery.trim()),
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
           return const Center(
